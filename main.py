@@ -21,11 +21,14 @@ CHORD_PATTERNS = {
 
 def note_to_semitone(note):
     note = note.strip()
-    if note[-1].isdigit():
+    octave = 4
+    if len(note) > 1 and note[-1].isdigit():
+        octave = int(note[-1])
         note = note[:-1]
     if note not in NOTE_TO_SEMITONE:
         raise ValueError(f"Invalid note: {note}")
-    return NOTE_TO_SEMITONE[note]
+    semitone = NOTE_TO_SEMITONE[note] + 12 * octave
+    return semitone
 
 def normalize_notes(notes):
     semitones = [note_to_semitone(n) % 12 for n in notes]
@@ -34,29 +37,32 @@ def normalize_notes(notes):
 
 def detect_chord(notes):
     semis = normalize_notes(notes)
+    original_semi = [note_to_semitone(n) % 12 for n in notes]
     for chord_name, pattern in CHORD_PATTERNS.items():
         for root in semis:
             shifted = sorted([(s - root) % 12 for s in semis])
             if shifted == pattern:
-                inversion = semis.index(root)
+                inversion = original_semi.index(root)
                 return chord_name, root, inversion
     return "unknown", semis[0], 0
 
-def semitone_to_note(semi):
-    for k,v in NOTE_TO_SEMITONE.items():
-        if v == semi:
-            return k
-    return '?'
+SEMITONE_TO_NOTE = {v: k for k, v in NOTE_TO_SEMITONE.items() if '#' in k or len(k)==1}
 
-def generate_sine(frequency, duration, amplitude=0.3):
+def semitone_to_note(semi):
+    semi = semi % 12
+    return SEMITONE_TO_NOTE.get(semi, '?')
+
+def generate_sine(frequency, duration=1.0, amplitude=0.3):
     t = np.linspace(0, duration, int(SAMPLE_RATE*duration), False)
     return amplitude * np.sin(2*np.pi*frequency*t)
 
 def play_chord(notes, duration=1.0, amplitude=0.3):
     waves = []
     for n in notes:
-        semitone = NOTE_TO_SEMITONE[n]
-        freq = 440.0 * 2**((semitone - 9)/12)
+        semitone_abs = note_to_semitone(n)
+        octave = semitone_abs // 12
+        semitone = semitone_abs % 12
+        freq = 440.0 * 2**((semitone - 9)/12 + (octave - 4))
         waves.append(generate_sine(freq, duration, amplitude))
     mix = np.sum(waves, axis=0)
     mix /= np.max(np.abs(mix))
@@ -66,7 +72,7 @@ def play_chord(notes, duration=1.0, amplitude=0.3):
 if __name__=="__main__":
     print("Chord Analyzer & Player (type 'exit' to quit)")
     while True:
-        user_input = input("Enter chord notes separated by space (e.g., C E G): ").strip()
+        user_input = input("Enter chord notes separated by space (e.g., C4 E4 G4): ").strip()
         if user_input.lower() in ('exit','quit'):
             print("Goodbye!")
             break
@@ -82,4 +88,5 @@ if __name__=="__main__":
             play_chord(notes)
         except Exception as e:
             print(f"Error: {e}")
-            print("Please enter valid notes (e.g., C E G).")
+            print("Please enter valid notes (e.g., C4 E4 G4).")
+
