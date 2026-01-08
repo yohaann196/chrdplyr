@@ -16,4 +16,4 @@ A Python script that analyzes musical chords, detects their type (major, minor, 
 2. Install dependencies:
 
 ```bash
-pip install numpy simpleaudio
+pip install numpy sounddevice
